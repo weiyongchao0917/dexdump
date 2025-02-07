@@ -1,5 +1,9 @@
 package main;
 
+import main.second.DexProtoId;
+import main.second.DexString;
+import main.second.DexTypeId;
+
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -17,6 +21,8 @@ public class DexFile {
     private DexTypeIds typeIds;     // 类型 ID 区域
     private DexMethodIds methodIds; // 方法 ID 区域
     private DexClassDefs classDefs; // 类定义区域
+
+    private DexProtoIds protoIds; // 类定义区域
 
     /**
      * 构造方法，通过文件路径读取并解析 DEX 文件。
@@ -38,17 +44,28 @@ public class DexFile {
             // 解析其他区域（这里仅作占位处理，实际实现需要根据 header 中的偏移量和大小进行解析）
             stringIds = new DexStringIds();
             stringIds.parse(buffer, header);
-            List<String> strings = stringIds.getStrings();
-            System.out.println(strings);
+            List<DexString> strings = stringIds.getStrings();
+
 
             typeIds = new DexTypeIds();
             typeIds.parse(buffer, header);
+
+
+            protoIds  =new  DexProtoIds ();
+            protoIds.parse(buffer,header);
+            for (DexProtoId allProtoId : protoIds.getAllProtoIds()) {
+                String methodSignature = allProtoId.getMethodSignature(stringIds, typeIds);
+                System.out.println(methodSignature);
+            }
+
 
             methodIds = new DexMethodIds();
             methodIds.parse(buffer, header);
 
             classDefs = new DexClassDefs();
             classDefs.parse(buffer, header);
+
+
         }
     }
 
@@ -87,7 +104,7 @@ public class DexFile {
 
     public static void main(String[] args) {
         try {
-            DexFile dexFile = new DexFile("C:\\Users\\youngChar\\Desktop\\apps\\classes.dex");
+            DexFile dexFile = new DexFile("C:\\Users\\Administrator\\Desktop\\吧中吧各个环境包\\classes.dex");
             dexFile.printDexInfo();
         } catch(IOException e) {
             System.err.println("Error reading DEX file: " + e.getMessage());
