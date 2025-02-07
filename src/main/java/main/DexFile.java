@@ -10,6 +10,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * DexFile 类用于解析整个 DEX 文件。
@@ -53,9 +54,10 @@ public class DexFile {
 
             protoIds  =new  DexProtoIds ();
             protoIds.parse(buffer,header);
+            System.out.println(protoIds.getAllProtoIds().size());
             for (DexProtoId allProtoId : protoIds.getAllProtoIds()) {
                 String methodSignature = allProtoId.getMethodSignature(stringIds, typeIds);
-                System.out.println(methodSignature);
+//                    System.out.println(methodSignature);
             }
 
 

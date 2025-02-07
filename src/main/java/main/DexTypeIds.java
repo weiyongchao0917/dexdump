@@ -62,9 +62,11 @@ public class DexTypeIds {
     }
 
 
-    public String getParameterTypeName(Buffer buffer,int typeIdx, DexStringIds dexStringIds) {
-
-        int stringIdx = typeIds.get(typeIdx).getDescriptorIdx(); // 获取 DexStringIds 的索引
-        return dexStringIds.getStringByIndex(stringIdx); // 从 DexStringIds 获取字符串
+    public List<String> getTypeNames(int[] typeIndexes, DexStringIds dexStringIds) {
+        List<String> typeNames = new ArrayList<>();
+        for (int typeIdx : typeIndexes) {
+            typeNames.add(getTypeName(typeIdx, dexStringIds));
+        }
+        return typeNames;
     }
 }

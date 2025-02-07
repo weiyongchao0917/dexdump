@@ -17,7 +17,13 @@ public class DexProtoIds {
         int protoIdsSize = header.getProtoIdsSize();
         buffer.position(protoIdsOff);
         for (int i = 0; i < protoIdsSize; i++) {
-            protoIds.add(DexProtoId.fromBuffer(buffer));
+            DexProtoId protoId = DexProtoId.fromBuffer(buffer);
+
+            // 使用副本解析参数列表，不影响主 buffer 的位置
+            ByteBuffer dup = buffer.duplicate();
+            protoId.parseParameters(dup);
+
+            protoIds.add(protoId);
         }
     }
 

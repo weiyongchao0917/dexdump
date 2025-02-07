@@ -46,26 +46,19 @@ public class DexStringIds {
         }
     }
 
-    /**
-     * 读取 Dex 文件中的字符串（UTF-8 编码，ULEB128 长度）
-     *
-     * @param buffer ByteBuffer（整个 DEX 文件映射）
-     * @return 解析得到的字符串
-     */
     private String readDexString(ByteBuffer buffer) {
+        // 先读取 ULEB128 编码的字符串长度，但不使用这个值作为字符串内容
+        DexdumpUtils.readUnsignedLeb128(buffer);
 
-
-        // 读取字符串数据直到遇到终止符（0）
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         while (true) {
             byte b = buffer.get();
-            if (b == 0) { // 遇到 0 说明字符串结束
+            if (b == 0) { // 遇到 0 表示字符串结束
                 break;
             }
             baos.write(b);
         }
-
-        // 解析 UTF-8 字符串
+        // 使用 UTF-8 编码转换成字符串
         return new String(baos.toByteArray(), StandardCharsets.UTF_8);
     }
 
