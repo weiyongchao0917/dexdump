@@ -1,8 +1,6 @@
 package main;
 
-import main.second.DexProtoId;
-import main.second.DexString;
-import main.second.DexTypeId;
+import main.second.*;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -16,6 +14,7 @@ import java.util.Locale;
  * DexFile 类用于解析整个 DEX 文件。
  * 它包含一个 DexFileHeader 字段，同时可以解析其他部分（例如 String IDs、Type IDs、Method IDs、Class Definitions 等）。
  */
+
 public class DexFile {
     private DexFileHeader header; // DEX 文件头部信息
     private DexStringIds stringIds; // 字符串 ID 区域
@@ -60,13 +59,30 @@ public class DexFile {
 //                    System.out.println(methodSignature);
             }
 
+            DexFieldIds dexFieldIds = new DexFieldIds();
+            dexFieldIds.parse(buffer, header);
+            for (DexFieldId fieldId : dexFieldIds.getFieldIds()) {
+                // 通过 fieldId.getClassIdx() 获取字段所属类
+                // 通过 fieldId.getTypeIdx() 获取字段类型
+                // 通过 fieldId.getNameIdx() 从 DexStringIds 获取字段名称
+
+                Integer classId = fieldId.getClassId();
+                Integer typeId = fieldId.getTypeId();
+                Integer nameId = fieldId.getNameId();
+                String className = typeIds.getTypeName(classId, stringIds);
+                String typeName = typeIds.getTypeName(typeId, stringIds);
+                String name = stringIds.getStringByIndex(nameId);
+//                System.out.println(className+"类中"+name+" 字段,的类型是"+typeName);
+            }
 
             methodIds = new DexMethodIds();
             methodIds.parse(buffer, header);
 
+
             classDefs = new DexClassDefs();
             classDefs.parse(buffer, header);
 
+            classDefs.printFullClassInfo(stringIds, typeIds, buffer);
 
         }
     }
@@ -100,8 +116,6 @@ public class DexFile {
         System.out.println("\n=== Additional Sections ===");
         System.out.println("String IDs Count: " + stringIds.getStringCount());
         System.out.println("Type IDs Count: " + typeIds.getTypeCount());
-        System.out.println("Method IDs Count: " + methodIds.getMethodCount());
-        System.out.println("Class Defs Count: " + classDefs.getClassDefCount());
     }
 
     public static void main(String[] args) {

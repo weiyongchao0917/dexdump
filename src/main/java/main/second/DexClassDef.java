@@ -1,6 +1,17 @@
-package main;
+package main.second;
+
 /**
- * DexClassDef 表示 DEX 文件中单个类定义项。
+ * DexClassDef 表示 DEX 文件中的一个类定义项。
+ *
+ * 每个类定义项占 32 字节，字段如下：
+ * - class_idx (4 字节)：指向 DexTypeIds 表中，表示该类的类型描述符索引
+ * - access_flags (4 字节)：类的访问标志
+ * - superclass_idx (4 字节)：指向 DexTypeIds 表中，表示父类的类型描述符索引
+ * - interfaces_off (4 字节)：接口列表偏移量（如果有的话）
+ * - source_file_idx (4 字节)：指向 DexStringIds 表中，表示源文件名称的索引
+ * - annotations_off (4 字节)：注解区域的偏移量
+ * - class_data_off (4 字节)：类数据的偏移量（包含字段、方法列表等）
+ * - static_values_off (4 字节)：静态字段初始值的偏移量
  */
 public class DexClassDef {
     private int classIdx;
@@ -70,3 +81,4 @@ public class DexClassDef {
                 '}';
     }
 }
+

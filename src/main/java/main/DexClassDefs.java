@@ -1,37 +1,36 @@
 package main;
 
+import main.second.DexClassDef;
+
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * DexClassDefs 用于解析 DEX 文件中的类定义部分。
- * 解析结果存储为 DexClassDef 对象的列表，每个对象包含了一个类的详细信息。
+ * DexClassDefs 用于解析 DEX 文件中的类定义区域（class_defs）。
+ *
+ * 根据 DexFileHeader 中的 classDefsSize 与 classDefsOff，依次解析每个类定义项（32 字节）。
  */
 public class DexClassDefs {
-    private int classDefCount;     // 类定义数量
-    private int classDefsOffset;   // 类定义区域的偏移量
-    private List<DexClassDef> classDefList;  // 存储解析得到的类定义项
+    private List<DexClassDef> classDefList = new ArrayList<>();
 
     /**
-     * 从 ByteBuffer 中解析类定义区域。
-     * 使用 header 中的 classDefsSize 和 classDefsOff 字段确定区域位置和数量。
+     * 解析类定义区域
      *
-     * @param buffer ByteBuffer（整个文件映射）
-     * @param header 已解析的 DEX 头部信息
+     * @param buffer DEX 文件数据的 ByteBuffer
+     * @param header 已解析的 DexFileHeader，其中包含 classDefsSize 和 classDefsOff 信息
      */
     public void parse(ByteBuffer buffer, DexFileHeader header) {
-        classDefCount = header.getClassDefsSize();
-        classDefsOffset = header.getClassDefsOff();
-        classDefList = new ArrayList<>();
+        int classDefsSize = header.getClassDefsSize();
+        int classDefsOff = header.getClassDefsOff();
 
-        // 每个类定义项占用 8*4=32 字节
-        final int CLASS_DEF_ITEM_SIZE = 32;
+        // DEX 文件采用小端字节序
+        buffer.order(ByteOrder.LITTLE_ENDIAN);
+        buffer.position(classDefsOff);
 
-        // 定位到类定义区域的起始位置
-        buffer.position(classDefsOffset);
-        for (int i = 0; i < classDefCount; i++) {
-            // 为每个类定义项依次读取 8 个整数
+        // 每个类定义项占用 32 字节
+        for (int i = 0; i < classDefsSize; i++) {
             int classIdx = buffer.getInt();
             int accessFlags = buffer.getInt();
             int superclassIdx = buffer.getInt();
@@ -40,16 +39,9 @@ public class DexClassDefs {
             int annotationsOff = buffer.getInt();
             int classDataOff = buffer.getInt();
             int staticValuesOff = buffer.getInt();
-
-            DexClassDef classDef = new DexClassDef(
-                    classIdx, accessFlags, superclassIdx, interfacesOff,
-                    sourceFileIdx, annotationsOff, classDataOff, staticValuesOff);
-            classDefList.add(classDef);
+            classDefList.add(new DexClassDef(classIdx, accessFlags, superclassIdx, interfacesOff,
+                    sourceFileIdx, annotationsOff, classDataOff, staticValuesOff));
         }
-    }
-
-    public int getClassDefCount() {
-        return classDefCount;
     }
 
     public List<DexClassDef> getClassDefList() {
@@ -57,13 +49,81 @@ public class DexClassDefs {
     }
 
     /**
-     * 打印所有类定义项的信息
+     * 输出整个类的字符串信息
+     *
+     * 这里依赖于 DexTypeIds 和 DexStringIds：
+     * - 通过 DexTypeIds.getTypeName() 解析 classIdx 与 superclassIdx 得到类名和父类名；
+     * - 通过 DexStringIds.getStringByIndex() 解析 sourceFileIdx 得到源文件名。
+     *
+     * @param dexStringIds 已解析的 DexStringIds（包含所有字符串）
+     * @param dexTypeIds 已解析的 DexTypeIds（包含所有类型信息）
      */
-    public void printClassDefs() {
-        System.out.println("Total ClassDefs: " + classDefCount);
+    public void printClassDefs(DexStringIds dexStringIds, DexTypeIds dexTypeIds) {
         for (int i = 0; i < classDefList.size(); i++) {
-            System.out.println("ClassDef[" + i + "]: " + classDefList.get(i));
+            DexClassDef def = classDefList.get(i);
+            // 获取类名（描述符），注意：classIdx 是指向 DexTypeIds 的索引
+            String classDescriptor = dexTypeIds.getTypeName(def.getClassIdx(), dexStringIds);
+
+            // 获取父类名（如果没有父类，则通常为 0xFFFFFFFF 或 -1，根据实际解析情况判断）
+            String superclassDescriptor = (def.getSuperclassIdx() < 0 || def.getSuperclassIdx() >= dexTypeIds.getTypeCount())
+                    ? "null" : dexTypeIds.getTypeName(def.getSuperclassIdx(), dexStringIds);
+
+            // 获取源文件名，通过 sourceFileIdx 从 DexStringIds 获取（注意无效索引的情况）
+            String sourceFile = (def.getSourceFileIdx() < 0 || def.getSourceFileIdx() >= dexStringIds.getStringCount())
+                    ? "null" : dexStringIds.getStringByIndex(def.getSourceFileIdx());
+
+            System.out.println("Class " + i + ": " + classDescriptor);
+            System.out.println("  Superclass: " + superclassDescriptor);
+            System.out.println("  Source File: " + sourceFile);
+            System.out.println("  Access Flags: 0x" + Integer.toHexString(def.getAccessFlags()));
+            System.out.println();
         }
     }
-}
 
+
+    public void printFullClassInfo(DexStringIds dexStringIds, DexTypeIds dexTypeIds, ByteBuffer buffer) {
+        for (int i = 0; i < classDefList.size(); i++) {
+            DexClassDef def = classDefList.get(i);
+            // 解析类名和父类名
+            String classDesc = dexTypeIds.getTypeName(def.getClassIdx(), dexStringIds);
+            String superDesc = (def.getSuperclassIdx() < 0 || def.getSuperclassIdx() >= dexTypeIds.getTypeCount())
+                    ? "Ljava/lang/Object;" : dexTypeIds.getTypeName(def.getSuperclassIdx(), dexStringIds);
+            // 转换为 Java 风格的名称（例如 "Lcom/example/MyClass;" -> "com.example.MyClass"）
+            String className = convertDescriptorToJavaName(classDesc);
+            String superName = convertDescriptorToJavaName(superDesc);
+            // 获取源文件
+            String sourceFile = (def.getSourceFileIdx() < 0 || def.getSourceFileIdx() >= dexStringIds.getStringCount())
+                    ? "Unknown" : dexStringIds.getStringByIndex(def.getSourceFileIdx());
+
+            // 输出类头
+            System.out.println("--------------------------------------------------");
+            System.out.println("Class " + i + ": " + className);
+            System.out.println("  Superclass: " + superName);
+            System.out.println("  Source File: " + sourceFile);
+            System.out.println("  Access Flags: 0x" + Integer.toHexString(def.getAccessFlags()));
+
+            // 解析 class data（字段和方法）
+            if (def.getClassDataOff() != 0) {
+                DexClassData classData = DexClassData.parse(buffer.duplicate(), def.getClassDataOff());
+                if (classData != null) {
+                    System.out.println("  [Class Data]");
+                    System.out.println(classData);
+                }
+            } else {
+                System.out.println("  [No Class Data]");
+            }
+            System.out.println("--------------------------------------------------\n");
+        }
+    }
+
+
+    private String convertDescriptorToJavaName(String descriptor) {
+        if (descriptor == null || descriptor.isEmpty()) {
+            return descriptor;
+        }
+        if (descriptor.charAt(0) == 'L' && descriptor.charAt(descriptor.length()-1) == ';') {
+            return descriptor.substring(1, descriptor.length()-1).replace('/', '.');
+        }
+        return descriptor;
+    }
+}
